@@ -1,4 +1,5 @@
 'use strict';
+/* $ global */
 
 const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = [
