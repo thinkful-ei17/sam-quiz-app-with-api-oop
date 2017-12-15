@@ -10,7 +10,20 @@ class TriviaApi {
   // Private Functions
 
   _buildTokenUrl() {
-    return new URL(BASE_API_URL + '/api_token.php');
+    return new URL(this.BASE_API_URL + '/api_token.php');
+  }
+
+  _buildBaseUrl(amt = 10, query = {}) {
+    const url = new URL(this.BASE_API_URL + '/api.php');
+    const queryKeys = Object.keys(query);
+    url.searchParams.set('amount', amt);
+  
+    if (this.sessionToken) {
+      url.searchParams.set('token', this.sessionToken);
+    }
+  
+    queryKeys.forEach(key => url.searchParams.set(key, query[key]));
+    return url;
   }
   
   // Public Functions
@@ -29,11 +42,30 @@ class TriviaApi {
       callback();
     }, err => console.log(err));
   }
+  
+  fetchQuestions(amt, query, callback) {
+    $.getJSON(this._buildBaseUrl(amt, query), callback, err => console.log(err.message));
+  }
+  
+  seedQuestions(questions) {
+    QUESTIONS.length = 0;
+    questions.forEach(q => QUESTIONS.push(createQuestion(q)));
+  }
+  
+  fetchAndSeedQuestions(amt, query, callback) {
+    this.fetchQuestions(amt, query, res => {
+      this.seedQuestions(res.results);
+      callback();
+    });
+  }
 
 }
 
 
 
+TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
+
+// FOR NOW: Maintains functionality -- to be deleted
 const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
@@ -64,34 +96,7 @@ const hideAll = function() {
   TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
 };
 
-const buildBaseUrl = function(amt = 10, query = {}) {
-  const url = new URL(BASE_API_URL + '/api.php');
-  const queryKeys = Object.keys(query);
-  url.searchParams.set('amount', amt);
 
-  if (store.sessionToken) {
-    url.searchParams.set('token', store.sessionToken);
-  }
-
-  queryKeys.forEach(key => url.searchParams.set(key, query[key]));
-  return url;
-};
-
-const fetchQuestions = function(amt, query, callback) {
-  $.getJSON(buildBaseUrl(amt, query), callback, err => console.log(err.message));
-};
-
-const seedQuestions = function(questions) {
-  QUESTIONS.length = 0;
-  questions.forEach(q => QUESTIONS.push(createQuestion(q)));
-};
-
-const fetchAndSeedQuestions = function(amt, query, callback) {
-  fetchQuestions(amt, query, res => {
-    seedQuestions(res.results);
-    callback();
-  });
-};
 
 // Decorate API question object into our Quiz App question format
 const createQuestion = function(question) {
