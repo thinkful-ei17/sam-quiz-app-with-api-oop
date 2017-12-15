@@ -29,6 +29,7 @@ class TriviaApi {
       callback();
     }, err => console.log(err));
   }
+
 }
 
 
@@ -188,7 +189,7 @@ const render = function() {
 
   switch (store.page) {
   case 'intro':
-    if (sessionToken) {
+    if (triviaGame.sessionToken) {
       $('.js-start').attr('disabled', false);
     }
   
@@ -259,9 +260,9 @@ const handleNextQuestion = function() {
   render();
 };
 
+const triviaGame = new TriviaApi();
 // On DOM Ready, run render() and add event listeners
 $(() => {
-  const triviaGame = new TriviaApi();
   // Run first render
   render(triviaGame);
   
