@@ -2,7 +2,6 @@
 /* global $ */
 
 class TriviaApi {
-  // fetch token
   constructor(){
     this.sessionToken = null;
   }
@@ -11,6 +10,32 @@ class TriviaApi {
 
   _buildTokenUrl() {
     return new URL(this.BASE_API_URL + '/api_token.php');
+  }
+
+  _fetchQuestions(amt, query, callback) {
+    $.getJSON(this._buildBaseUrl(amt, query), callback, err => console.log(err.message));
+  }
+  
+  _createQuestion(question) {
+    // Copy incorrect_answers array into new all answers array
+    const answers = [ ...question.incorrect_answers ];
+  
+    // Pick random index from total answers length (incorrect_answers length + 1 correct_answer)
+    const randomIndex = Math.floor(Math.random() * (question.incorrect_answers.length + 1));
+  
+    // Insert correct answer at random place
+    answers.splice(randomIndex, 0, question.correct_answer);
+  
+    return {
+      text: question.question,
+      correctAnswer: question.correct_answer,
+      answers
+    };
+  }
+
+  _seedQuestions(questions) {
+    QUESTIONS.length = 0;
+    questions.forEach(q => QUESTIONS.push(this._createQuestion(q)));
   }
 
   _buildBaseUrl(amt = 10, query = {}) {
@@ -42,19 +67,10 @@ class TriviaApi {
       callback();
     }, err => console.log(err));
   }
-  
-  fetchQuestions(amt, query, callback) {
-    $.getJSON(this._buildBaseUrl(amt, query), callback, err => console.log(err.message));
-  }
-  
-  seedQuestions(questions) {
-    QUESTIONS.length = 0;
-    questions.forEach(q => QUESTIONS.push(createQuestion(q)));
-  }
-  
+    
   fetchAndSeedQuestions(amt, query, callback) {
-    this.fetchQuestions(amt, query, res => {
-      this.seedQuestions(res.results);
+    this._fetchQuestions(amt, query, res => {
+      this._seedQuestions(res.results);
       callback();
     });
   }
@@ -65,8 +81,6 @@ class TriviaApi {
 
 TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
 
-// FOR NOW: Maintains functionality -- to be deleted
-const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
   'js-outro', 'js-quiz-status'
@@ -99,22 +113,7 @@ const hideAll = function() {
 
 
 // Decorate API question object into our Quiz App question format
-const createQuestion = function(question) {
-  // Copy incorrect_answers array into new all answers array
-  const answers = [ ...question.incorrect_answers ];
 
-  // Pick random index from total answers length (incorrect_answers length + 1 correct_answer)
-  const randomIndex = Math.floor(Math.random() * (question.incorrect_answers.length + 1));
-
-  // Insert correct answer at random place
-  answers.splice(randomIndex, 0, question.correct_answer);
-
-  return {
-    text: question.question,
-    correctAnswer: question.correct_answer,
-    answers
-  };
-};
 
 const getScore = function() {
   return store.userAnswers.reduce((accumulator, userAnswer, index) => {
@@ -232,7 +231,7 @@ const handleStartQuiz = function() {
   store.page = 'question';
   store.currentQuestionIndex = 0;
   const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
-  fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
+  triviaGame.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
     render();
   });
 };
