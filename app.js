@@ -47,8 +47,6 @@ class TriviaApi {
   }
 }
 
-TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
-
 class QuestionData {
   constructor() {
     this.QUESTIONS = [];
@@ -130,13 +128,20 @@ class Store {
 }
 
 class Renderer {
-  constructor() {
-
+  constructor(){
+    this.TOP_LEVEL_COMPONENTS = [
+      'js-intro', 'js-question', 'js-question-feedback', 
+      'js-outro', 'js-quiz-status'
+    ];
+  }
+  
+  _hideAll() {
+    this.TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
   }
   
   render() {
     let html;
-    hideAll();
+    this._hideAll();
   
     const question = quizStore.getCurrentQuestion();
     const { feedback } = quizStore.store; 
@@ -155,14 +160,14 @@ class Renderer {
       break;
       
     case 'question':
-      html = generateQuestionHtml(question);
+      html = quizAspectsGenerator.generateQuestionHtml(question);
       $('.js-question').html(html);
       $('.js-question').show();
       $('.quiz-status').show();
       break;
   
     case 'answer':
-      html = generateFeedbackHtml(feedback);
+      html = quizAspectsGenerator.generateFeedbackHtml(feedback);
       $('.js-question-feedback').html(html);
       $('.js-question-feedback').show();
       $('.quiz-status').show();
@@ -217,64 +222,50 @@ class Renderer {
   }
 }
 
-const TOP_LEVEL_COMPONENTS = [
-  'js-intro', 'js-question', 'js-question-feedback', 
-  'js-outro', 'js-quiz-status'
-];
-
-// Helper functions
-// ===============
-const hideAll = function() {
-  TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
-};
-
-
-
-// Decorate API question object into our Quiz App question format
-
-
-
-
-// HTML generator functions
-// ========================
-const generateAnswerItemHtml = function(answer) {
-  return `
-    <li class="answer-item">
-      <input type="radio" name="answers" value="${answer}" />
-      <span class="answer-text">${answer}</span>
-    </li>
-  `;
-};
-
-const generateQuestionHtml = function(question) {
-  const answers = question.answers
-    .map((answer, index) => generateAnswerItemHtml(answer, index))
-    .join('');
-
-  return `
-    <form>
-      <fieldset>
-        <legend class="question-text">${question.text}</legend>
-          ${answers}
-          <button type="submit">Submit</button>
-      </fieldset>
-    </form>
-  `;
-};
-
-const generateFeedbackHtml = function(feedback) {
-  return `
-    <p>
-      ${feedback}
-    </p>
-    <button class="continue js-continue">Continue</button>
-  `;
-};
+class Generator {
+  generateAnswerItemHtml(answer) {
+    return `
+      <li class="answer-item">
+        <input type="radio" name="answers" value="${answer}" />
+        <span class="answer-text">${answer}</span>
+      </li>
+    `;
+  }
+  
+  generateQuestionHtml(question) {
+    const answers = question.answers
+      .map((answer, index) => this.generateAnswerItemHtml(answer, index))
+      .join('');
+  
+    return `
+      <form>
+        <fieldset>
+          <legend class="question-text">${question.text}</legend>
+            ${answers}
+            <button type="submit">Submit</button>
+        </fieldset>
+      </form>
+    `;
+  }
+  
+  generateFeedbackHtml(feedback) {
+    return `
+      <p>
+        ${feedback}
+      </p>
+      <button class="continue js-continue">Continue</button>
+    `;
+  }
+}
 
 const triviaGame = new TriviaApi();
 const questionList = new QuestionData();
 const quizStore = new Store();
 const quizRenderer = new Renderer();
+const quizAspectsGenerator = new Generator();
+
+TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
+
 // On DOM Ready, run render() and add event listeners
 $(() => {
   // Run first render
