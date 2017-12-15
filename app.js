@@ -16,28 +16,6 @@ class TriviaApi {
     $.getJSON(this._buildBaseUrl(amt, query), callback, err => console.log(err.message));
   }
   
-  _createQuestion(question) {
-    // Copy incorrect_answers array into new all answers array
-    const answers = [ ...question.incorrect_answers ];
-  
-    // Pick random index from total answers length (incorrect_answers length + 1 correct_answer)
-    const randomIndex = Math.floor(Math.random() * (question.incorrect_answers.length + 1));
-  
-    // Insert correct answer at random place
-    answers.splice(randomIndex, 0, question.correct_answer);
-  
-    return {
-      text: question.question,
-      correctAnswer: question.correct_answer,
-      answers
-    };
-  }
-
-  _seedQuestions(questions) {
-    QUESTIONS.length = 0;
-    questions.forEach(q => QUESTIONS.push(this._createQuestion(q)));
-  }
-
   _buildBaseUrl(amt = 10, query = {}) {
     const url = new URL(this.BASE_API_URL + '/api.php');
     const queryKeys = Object.keys(query);
@@ -67,17 +45,43 @@ class TriviaApi {
       callback();
     }, err => console.log(err));
   }
-    
+}
+
+TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
+
+class QuestionData {
+  constructor() {
+    this.QUESTIONS = [];
+  }
+  _createQuestion(question) {
+    // Copy incorrect_answers array into new all answers array
+    const answers = [ ...question.incorrect_answers ];
+  
+    // Pick random index from total answers length (incorrect_answers length + 1 correct_answer)
+    const randomIndex = Math.floor(Math.random() * (question.incorrect_answers.length + 1));
+  
+    // Insert correct answer at random place
+    answers.splice(randomIndex, 0, question.correct_answer);
+  
+    return {
+      text: question.question,
+      correctAnswer: question.correct_answer,
+      answers
+    };
+  }
+
+  _seedQuestions(questions) {
+    this.QUESTIONS.length = 0;
+    questions.forEach(q => this.QUESTIONS.push(this._createQuestion(q)));
+  }
+
   fetchAndSeedQuestions(amt, query, callback) {
-    this._fetchQuestions(amt, query, res => {
+    triviaGame._fetchQuestions(amt, query, res => {
       this._seedQuestions(res.results);
       callback();
     });
   }
-
 }
-
-TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
 
 class Store {
   constructor() {
@@ -111,16 +115,16 @@ class Store {
   getProgress() {
     return {
       current: this.store.currentQuestionIndex + 1,
-      total: QUESTIONS.length
+      total: questionList.QUESTIONS.length
     };
   }
   
   getCurrentQuestion() {
-    return QUESTIONS[this.store.currentQuestionIndex];
+    return questionList.QUESTIONS[this.store.currentQuestionIndex];
   }
   
   getQuestion(index) {
-    return QUESTIONS[index];
+    return questionList.QUESTIONS[index];
   }
 
 }
@@ -129,8 +133,6 @@ const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
   'js-outro', 'js-quiz-status'
 ];
-
-let QUESTIONS = [];
 
 // Helper functions
 // ===============
@@ -233,7 +235,7 @@ const handleStartQuiz = function() {
   quizStore.store.page = 'question';
   quizStore.store.currentQuestionIndex = 0;
   const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
-  triviaGame.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
+  questionList.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
     render();
   });
 };
@@ -255,7 +257,7 @@ const handleSubmitAnswer = function(e) {
 };
 
 const handleNextQuestion = function() {
-  if (quizStore.store.currentQuestionIndex === QUESTIONS.length - 1) {
+  if (quizStore.store.currentQuestionIndex === questionList.QUESTIONS.length - 1) {
     quizStore.store.page = 'outro';
     render();
     return;
@@ -267,15 +269,16 @@ const handleNextQuestion = function() {
 };
 
 const triviaGame = new TriviaApi();
+const questionList = new QuestionData();
 const quizStore = new Store();
 // On DOM Ready, run render() and add event listeners
 $(() => {
   // Run first render
-  render(triviaGame);
+  render();
   
   // Fetch session token, re-render when complete
   triviaGame.fetchToken(() => {
-    render(triviaGame);
+    render();
   });
 
   $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
