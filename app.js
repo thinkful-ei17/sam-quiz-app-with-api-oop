@@ -85,12 +85,12 @@ class QuestionData {
 
 class Store {
   constructor() {
-    this.store = this._getInitialStore();
+    this.store = this.getInitialStore();
   }
   
   // Private Functions
 
-  _getInitialStore(){
+  getInitialStore(){
     return {
       page: 'intro',
       currentQuestionIndex: null,
@@ -127,6 +127,94 @@ class Store {
     return questionList.QUESTIONS[index];
   }
 
+}
+
+class Renderer {
+  constructor() {
+
+  }
+  
+  render() {
+    let html;
+    hideAll();
+  
+    const question = quizStore.getCurrentQuestion();
+    const { feedback } = quizStore.store; 
+    const { current, total } = quizStore.getProgress();
+  
+    $('.js-score').html(`<span>Score: ${quizStore.getScore()}</span>`);
+    $('.js-progress').html(`<span>Question ${current} of ${total}`);
+  
+    switch (quizStore.store.page) {
+    case 'intro':
+      if (triviaGame.sessionToken) {
+        $('.js-start').attr('disabled', false);
+      }
+    
+      $('.js-intro').show();
+      break;
+      
+    case 'question':
+      html = generateQuestionHtml(question);
+      $('.js-question').html(html);
+      $('.js-question').show();
+      $('.quiz-status').show();
+      break;
+  
+    case 'answer':
+      html = generateFeedbackHtml(feedback);
+      $('.js-question-feedback').html(html);
+      $('.js-question-feedback').show();
+      $('.quiz-status').show();
+      break;
+  
+    case 'outro':
+      $('.js-outro').show();
+      $('.quiz-status').show();
+      break;
+  
+    default:
+      return;
+    }
+  }
+
+  handleStartQuiz() {
+    quizStore.store = quizStore.getInitialStore();
+    quizStore.store.page = 'question';
+    quizStore.store.currentQuestionIndex = 0;
+    const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
+    questionList.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
+      quizRenderer.render();
+    });
+  }
+  
+  handleSubmitAnswer(e) {
+    e.preventDefault();
+    const question = quizStore.getCurrentQuestion();
+    const selected = $('input:checked').val();
+    quizStore.store.userAnswers.push(selected);
+    
+    if (selected === question.correctAnswer) {
+      quizStore.store.feedback = 'You got it!';
+    } else {
+      quizStore.store.feedback = `Too bad! The correct answer was: ${question.correctAnswer}`;
+    }
+  
+    quizStore.store.page = 'answer';
+    quizRenderer.render();
+  }
+  
+  handleNextQuestion() {
+    if (quizStore.store.currentQuestionIndex === questionList.QUESTIONS.length - 1) {
+      quizStore.store.page = 'outro';
+      quizRenderer.render();
+      return;
+    }
+  
+    quizStore.store.currentQuestionIndex++;
+    quizStore.store.page = 'question';
+    quizRenderer.render();
+  }
 }
 
 const TOP_LEVEL_COMPONENTS = [
@@ -183,105 +271,21 @@ const generateFeedbackHtml = function(feedback) {
   `;
 };
 
-// Render function - uses `store` object to construct entire page every time it's run
-// ===============
-const render = function() {
-  let html;
-  hideAll();
-
-  const question = quizStore.getCurrentQuestion();
-  const { feedback } = quizStore.store; 
-  const { current, total } = quizStore.getProgress();
-
-  $('.js-score').html(`<span>Score: ${quizStore.getScore()}</span>`);
-  $('.js-progress').html(`<span>Question ${current} of ${total}`);
-
-  switch (quizStore.store.page) {
-  case 'intro':
-    if (triviaGame.sessionToken) {
-      $('.js-start').attr('disabled', false);
-    }
-  
-    $('.js-intro').show();
-    break;
-    
-  case 'question':
-    html = generateQuestionHtml(question);
-    $('.js-question').html(html);
-    $('.js-question').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'answer':
-    html = generateFeedbackHtml(feedback);
-    $('.js-question-feedback').html(html);
-    $('.js-question-feedback').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'outro':
-    $('.js-outro').show();
-    $('.quiz-status').show();
-    break;
-
-  default:
-    return;
-  }
-};
-
-// Event handler functions
-// =======================
-const handleStartQuiz = function() {
-  quizStore.store.page = 'question';
-  quizStore.store.currentQuestionIndex = 0;
-  const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
-  questionList.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
-    render();
-  });
-};
-
-const handleSubmitAnswer = function(e) {
-  e.preventDefault();
-  const question = quizStore.getCurrentQuestion();
-  const selected = $('input:checked').val();
-  quizStore.store.userAnswers.push(selected);
-  
-  if (selected === question.correctAnswer) {
-    quizStore.store.feedback = 'You got it!';
-  } else {
-    quizStore.store.feedback = `Too bad! The correct answer was: ${question.correctAnswer}`;
-  }
-
-  quizStore.store.page = 'answer';
-  render();
-};
-
-const handleNextQuestion = function() {
-  if (quizStore.store.currentQuestionIndex === questionList.QUESTIONS.length - 1) {
-    quizStore.store.page = 'outro';
-    render();
-    return;
-  }
-
-  quizStore.store.currentQuestionIndex++;
-  quizStore.store.page = 'question';
-  render();
-};
-
 const triviaGame = new TriviaApi();
 const questionList = new QuestionData();
 const quizStore = new Store();
+const quizRenderer = new Renderer();
 // On DOM Ready, run render() and add event listeners
 $(() => {
   // Run first render
-  render();
+  quizRenderer.render();
   
   // Fetch session token, re-render when complete
   triviaGame.fetchToken(() => {
-    render();
+    quizRenderer.render();
   });
 
-  $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
-  $('.js-question').on('submit', handleSubmitAnswer);
-  $('.js-question-feedback').on('click', '.js-continue', handleNextQuestion);
+  $('.js-intro, .js-outro').on('click', '.js-start', quizRenderer.handleStartQuiz);
+  $('.js-question').on('submit', quizRenderer.handleSubmitAnswer);
+  $('.js-question-feedback').on('click', '.js-continue', quizRenderer.handleNextQuestion);
 });
