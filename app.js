@@ -77,9 +77,53 @@ class TriviaApi {
 
 }
 
-
-
 TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
+
+class Store {
+  constructor() {
+    this.store = this._getInitialStore();
+  }
+  
+  // Private Functions
+
+  _getInitialStore(){
+    return {
+      page: 'intro',
+      currentQuestionIndex: null,
+      userAnswers: [],
+      feedback: null,
+    };
+  }
+
+  // Public Functions
+  getScore() {
+    return this.store.userAnswers.reduce((accumulator, userAnswer, index) => {
+      const question = this.getQuestion(index);
+  
+      if (question.correctAnswer === userAnswer) {
+        return accumulator + 1;
+      } else {
+        return accumulator;
+      }
+    }, 0);
+  }
+  
+  getProgress() {
+    return {
+      current: this.store.currentQuestionIndex + 1,
+      total: QUESTIONS.length
+    };
+  }
+  
+  getCurrentQuestion() {
+    return QUESTIONS[this.store.currentQuestionIndex];
+  }
+  
+  getQuestion(index) {
+    return QUESTIONS[index];
+  }
+
+}
 
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
@@ -87,22 +131,6 @@ const TOP_LEVEL_COMPONENTS = [
 ];
 
 let QUESTIONS = [];
-
-// token is global because store is reset between quiz games, but token should persist for 
-// entire session
-// let sessionToken;
-
-const getInitialStore = function(){
-  return {
-    page: 'intro',
-    currentQuestionIndex: null,
-    userAnswers: [],
-    feedback: null,
-    // sessionToken,
-  };
-};
-
-let store = getInitialStore();
 
 // Helper functions
 // ===============
@@ -115,32 +143,7 @@ const hideAll = function() {
 // Decorate API question object into our Quiz App question format
 
 
-const getScore = function() {
-  return store.userAnswers.reduce((accumulator, userAnswer, index) => {
-    const question = getQuestion(index);
 
-    if (question.correctAnswer === userAnswer) {
-      return accumulator + 1;
-    } else {
-      return accumulator;
-    }
-  }, 0);
-};
-
-const getProgress = function() {
-  return {
-    current: store.currentQuestionIndex + 1,
-    total: QUESTIONS.length
-  };
-};
-
-const getCurrentQuestion = function() {
-  return QUESTIONS[store.currentQuestionIndex];
-};
-
-const getQuestion = function(index) {
-  return QUESTIONS[index];
-};
 
 // HTML generator functions
 // ========================
@@ -184,14 +187,14 @@ const render = function() {
   let html;
   hideAll();
 
-  const question = getCurrentQuestion();
-  const { feedback } = store; 
-  const { current, total } = getProgress();
+  const question = quizStore.getCurrentQuestion();
+  const { feedback } = quizStore.store; 
+  const { current, total } = quizStore.getProgress();
 
-  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
+  $('.js-score').html(`<span>Score: ${quizStore.getScore()}</span>`);
   $('.js-progress').html(`<span>Question ${current} of ${total}`);
 
-  switch (store.page) {
+  switch (quizStore.store.page) {
   case 'intro':
     if (triviaGame.sessionToken) {
       $('.js-start').attr('disabled', false);
@@ -227,9 +230,8 @@ const render = function() {
 // Event handler functions
 // =======================
 const handleStartQuiz = function() {
-  store = getInitialStore();
-  store.page = 'question';
-  store.currentQuestionIndex = 0;
+  quizStore.store.page = 'question';
+  quizStore.store.currentQuestionIndex = 0;
   const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
   triviaGame.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
     render();
@@ -238,33 +240,34 @@ const handleStartQuiz = function() {
 
 const handleSubmitAnswer = function(e) {
   e.preventDefault();
-  const question = getCurrentQuestion();
+  const question = quizStore.getCurrentQuestion();
   const selected = $('input:checked').val();
-  store.userAnswers.push(selected);
+  quizStore.store.userAnswers.push(selected);
   
   if (selected === question.correctAnswer) {
-    store.feedback = 'You got it!';
+    quizStore.store.feedback = 'You got it!';
   } else {
-    store.feedback = `Too bad! The correct answer was: ${question.correctAnswer}`;
+    quizStore.store.feedback = `Too bad! The correct answer was: ${question.correctAnswer}`;
   }
 
-  store.page = 'answer';
+  quizStore.store.page = 'answer';
   render();
 };
 
 const handleNextQuestion = function() {
-  if (store.currentQuestionIndex === QUESTIONS.length - 1) {
-    store.page = 'outro';
+  if (quizStore.store.currentQuestionIndex === QUESTIONS.length - 1) {
+    quizStore.store.page = 'outro';
     render();
     return;
   }
 
-  store.currentQuestionIndex++;
-  store.page = 'question';
+  quizStore.store.currentQuestionIndex++;
+  quizStore.store.page = 'question';
   render();
 };
 
 const triviaGame = new TriviaApi();
+const quizStore = new Store();
 // On DOM Ready, run render() and add event listeners
 $(() => {
   // Run first render
