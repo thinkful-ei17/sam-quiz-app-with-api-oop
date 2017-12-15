@@ -1,6 +1,38 @@
 'use strict';
 /* global $ */
 
+class TriviaApi {
+  // fetch token
+  constructor(){
+    this.sessionToken = null;
+  }
+  
+  // Private Functions
+
+  _buildTokenUrl() {
+    return new URL(BASE_API_URL + '/api_token.php');
+  }
+  
+  // Public Functions
+
+  fetchToken(callback) {
+    if (this.sessionToken) {
+      return callback();
+    }
+  
+    const url = this._buildTokenUrl();
+    url.searchParams.set('command', 'request');
+  
+    $.getJSON(url, res => {
+      this.sessionToken = res.token;
+      console.log(this.sessionToken);
+      callback();
+    }, err => console.log(err));
+  }
+}
+
+
+
 const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
@@ -11,7 +43,7 @@ let QUESTIONS = [];
 
 // token is global because store is reset between quiz games, but token should persist for 
 // entire session
-let sessionToken;
+// let sessionToken;
 
 const getInitialStore = function(){
   return {
@@ -19,7 +51,7 @@ const getInitialStore = function(){
     currentQuestionIndex: null,
     userAnswers: [],
     feedback: null,
-    sessionToken,
+    // sessionToken,
   };
 };
 
@@ -42,24 +74,6 @@ const buildBaseUrl = function(amt = 10, query = {}) {
 
   queryKeys.forEach(key => url.searchParams.set(key, query[key]));
   return url;
-};
-
-const buildTokenUrl = function() {
-  return new URL(BASE_API_URL + '/api_token.php');
-};
-
-const fetchToken = function(callback) {
-  if (sessionToken) {
-    return callback();
-  }
-
-  const url = buildTokenUrl();
-  url.searchParams.set('command', 'request');
-
-  $.getJSON(url, res => {
-    sessionToken = res.token;
-    callback();
-  }, err => console.log(err));
 };
 
 const fetchQuestions = function(amt, query, callback) {
@@ -173,35 +187,35 @@ const render = function() {
   $('.js-progress').html(`<span>Question ${current} of ${total}`);
 
   switch (store.page) {
-    case 'intro':
-      if (sessionToken) {
-        $('.js-start').attr('disabled', false);
-      }
+  case 'intro':
+    if (sessionToken) {
+      $('.js-start').attr('disabled', false);
+    }
   
-      $('.js-intro').show();
-      break;
+    $('.js-intro').show();
+    break;
     
-    case 'question':
-      html = generateQuestionHtml(question);
-      $('.js-question').html(html);
-      $('.js-question').show();
-      $('.quiz-status').show();
-      break;
+  case 'question':
+    html = generateQuestionHtml(question);
+    $('.js-question').html(html);
+    $('.js-question').show();
+    $('.quiz-status').show();
+    break;
 
-    case 'answer':
-      html = generateFeedbackHtml(feedback);
-      $('.js-question-feedback').html(html);
-      $('.js-question-feedback').show();
-      $('.quiz-status').show();
-      break;
+  case 'answer':
+    html = generateFeedbackHtml(feedback);
+    $('.js-question-feedback').html(html);
+    $('.js-question-feedback').show();
+    $('.quiz-status').show();
+    break;
 
-    case 'outro':
-      $('.js-outro').show();
-      $('.quiz-status').show();
-      break;
+  case 'outro':
+    $('.js-outro').show();
+    $('.quiz-status').show();
+    break;
 
-    default:
-      return;
+  default:
+    return;
   }
 };
 
@@ -247,12 +261,13 @@ const handleNextQuestion = function() {
 
 // On DOM Ready, run render() and add event listeners
 $(() => {
+  const triviaGame = new TriviaApi();
   // Run first render
-  render();
+  render(triviaGame);
   
   // Fetch session token, re-render when complete
-  fetchToken(() => {
-    render();
+  triviaGame.fetchToken(() => {
+    render(triviaGame);
   });
 
   $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
